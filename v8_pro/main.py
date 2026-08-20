@@ -61,32 +61,204 @@ def channel_from_content(v: Any) -> int | None:
     return None
 
 
-def canonicalize_columns(df: pd.DataFrame) -> pd.DataFrame:
+def detect_report_type(df: pd.DataFrame, path: Path | None = None) -> str:
+    """
+    自动判断 Excel 报表类型。
+
+    返回：
+    - video_anomaly：视频异常明细报表
+    - mileage_summary：车辆运行统计报表
+    - unknown：无法识别
+    """
+    columns = {text(c) for c in df.columns}
+
+    # 视频异常明细报表的核心字段
+    anomaly_fields = {
+        "状态名称",
+        "状态类型",
+        "设备编号",
+        "归属车组",
+        "状态内容",
+    }
+
+    # 车辆运行统计报表的典型字段
+    mileage_fields = {
+        "统计日期",
+        "总运行车辆数",
+        "总运行里程（KM）",
+    }
+
+    # 先判断视频异常明细报表
+    if anomaly_fields.issubset(columns):
+        return "video_anomaly"
+
+    # 再判断车辆运行统计报表
+    if mileage_fields.issubset(columns):
+        return "mileage_summary"
+
+    # 根据部分字段进一步判断
+    anomaly_score = len(columns & anomaly_fields)
+    mileage_score = len(columns & mileage_fields)
+
+    if anomaly_score >= 3 and anomaly_score > mileage_score:
+        return "video_anomaly"
+
+    if mileage_score >= 2 and mileage_score > anomaly_score:
+        return "mileage_summary"
+
+    return "unknown"
+
+
+def report_type_name(report_type: str) -> str:
+    """将内部报表类型转换成用户容易理解的中文名称。"""
+    names = {
+        "video_anomaly": "视频异常明细报表",
+        "mileage_summary": "车辆运行统计报表",
+        "unknown": "未知报表",
+    }
+    return names.get(report_type, "未知报表")
+
+
+def detect_report_type(df: pd.DataFrame, path: Path | None = None) -> str:
+    """
+    自动判断 Excel 报表类型。
+
+    返回：
+    - video_anomaly：视频异常明细报表
+    - mileage_summary：车辆运行统计报表
+    - unknown：无法识别
+    """
+    columns = {text(c) for c in df.columns}
+
+    # 视频异常明细报表的核心字段
+    anomaly_fields = {
+        "状态名称",
+        "状态类型",
+        "设备编号",
+        "归属车组",
+        "状态内容",
+    }
+
+    # 车辆运行统计报表的典型字段
+    mileage_fields = {
+        "统计日期",
+        "总运行车辆数",
+        "总运行里程（KM）",
+    }
+
+    # 先判断视频异常明细报表
+    if anomaly_fields.issubset(columns):
+        return "video_anomaly"
+
+    # 再判断车辆运行统计报表
+    if mileage_fields.issubset(columns):
+        return "mileage_summary"
+
+    # 根据部分字段进一步判断
+    anomaly_score = len(columns & anomaly_fields)
+    mileage_score = len(columns & mileage_fields)
+
+    if anomaly_score >= 3 and anomaly_score > mileage_score:
+        return "video_anomaly"
+
+    if mileage_score >= 2 and mileage_score > anomaly_score:
+        return "mileage_summary"
+
+    return "unknown"
+
+
+def report_type_name(report_type: str) -> str:
+    """将内部报表类型转换成用户容易理解的中文名称。"""
+    names = {
+        "video_anomaly": "视频异常明细报表",
+        "mileage_summary": "车辆运行统计报表",
+        "unknown": "未知报表",
+    }
+    return names.get(report_type, "未知报表")
+
+
+def canonicalize_columns(df: pd.DataFrame, path: Path | None = None) -> pd.DataFrame:
     df = df.copy()
+
+    # 清理 Excel 表头
     df.columns = [text(c) for c in df.columns]
+
     lower_to_actual = {c.lower(): c for c in df.columns}
+
     rename_map: dict[str, str] = {}
+
+    # 根据 config.py 中的 COLUMN_ALIASES 自动统一字段名称
     for canonical, aliases in COLUMN_ALIASES.items():
         if canonical in df.columns:
             continue
+
         for alias in aliases:
             actual = lower_to_actual.get(alias.lower())
+
             if actual is not None:
                 rename_map[actual] = canonical
                 break
+
     if rename_map:
         df = df.rename(columns=rename_map)
+
+    # 自动识别报表类型
+    report_type = detect_report_type(df, path)
+
+    # 车辆运行统计报表
+    if report_type == "mileage_summary":
+        file_name = path.name if path else "当前文件"
+
+        raise ValueError(
+            f"\n检测到：{report_type_name(report_type)}\n"
+            f"文件：{file_name}\n\n"
+            "当前文件包含车辆运行统计字段：\n"
+            "  - 统计日期\n"
+            "  - 总运行车辆数\n"
+            "  - 总运行里程（KM）\n\n"
+            "该文件不属于 V8 Pro 视频异常明细报表，"
+            "无法用于当前的视频异常分析。\n\n"
+            "请提供包含以下字段的视频异常明细报表：\n"
+            "  - 状态名称\n"
+            "  - 状态类型\n"
+            "  - 设备编号\n"
+            "  - 归属车组\n"
+            "  - 状态内容"
+        )
+
+    # 完全无法识别
+    if report_type == "unknown":
+        missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
+
+        file_name = path.name if path else "当前文件"
+
+        raise ValueError(
+            f"\n无法识别输入报表类型。\n"
+            f"文件：{file_name}\n\n"
+            f"当前字段：{list(df.columns)}\n\n"
+            f"缺少视频异常分析所需字段：{missing}\n\n"
+            "请确认输入的是视频异常明细报表。"
+        )
+
+    # 视频异常明细报表
     missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
+
     if missing:
         raise ValueError(
-            f"输入报表字段不完整，缺少：{missing}\n当前字段：{list(df.columns)}"
+            f"\n检测到：{report_type_name(report_type)}\n"
+            f"但输入报表字段仍不完整。\n"
+            f"缺少：{missing}\n"
+            f"当前字段：{list(df.columns)}"
         )
+
+    # 统一字段数据类型
     for c in REQUIRED_COLUMNS:
         df[c] = df[c].map(text)
+
     if "通道号" in df.columns:
         df["通道号"] = df["通道号"].map(safe_int)
-    return df
 
+    return df
 
 def discover_inputs() -> tuple[Path, Path]:
     if INPUT_A.exists() and INPUT_B.exists():
@@ -133,7 +305,7 @@ def classify(group: Any, channel: Any) -> tuple[str, str, str, str]:
 
 def load_one(path: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     raw = pd.read_excel(path)
-    raw = canonicalize_columns(raw)
+    raw = canonicalize_columns(raw,path)
     camera_names = {text(x) for x in CAMERA_ERROR_NAMES}
     mask = (
         raw["状态名称"].isin(camera_names)
