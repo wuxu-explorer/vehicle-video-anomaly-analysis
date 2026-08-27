@@ -1,3 +1,6 @@
-pandas
+﻿pandas
 numpy
 openpyxl
+matplotlib
+python-docx
+lxml

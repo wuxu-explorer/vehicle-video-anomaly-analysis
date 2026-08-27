@@ -1,23 +1,47 @@
+# Python
 __pycache__/
 *.py[cod]
 *.pyo
+*$py.class
 
+# Virtual environments
 .venv/
 venv/
 env/
+ENV/
 
+# IDE
 .vscode/
+.idea/
 
-.pytest_cache/
-.mypy_cache/
+# Runtime data and generated reports
+**/data/*.xlsx
+**/data/*.xls
+**/output/*
+!**/output/.gitkeep
 
-output/
+# Temporary charts
+**/charts/*
+!**/charts/.gitkeep
 
-data/
-test_data/
+# Logs / temporary files
+*.log
+*.tmp
+*.bak
 
+# Secrets / local configuration
+.env
+.env.*
+*.key
+*.pem
+secrets.*
+
+# Temporary Excel / Word files
 ~$*.xlsx
-~$*.xls
+~$*.docx
+*.xlsx~
+*.docx~
 
+# OS files
 .DS_Store
 Thumbs.db

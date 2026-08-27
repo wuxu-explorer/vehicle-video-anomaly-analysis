@@ -1,37 +1,25 @@
-# Python
-__pycache__/
+﻿__pycache__/
 *.py[cod]
-*$py.class
 *.pyo
 
-# Virtual environments
 .venv/
 venv/
 env/
-ENV/
 
-# IDE
 .vscode/
 .idea/
 
-# Runtime data and generated reports
-**/data/*.xlsx
-**/data/*.xls
-**/output/*
-!**/output/.gitkeep
-
-# Local demo/test data
-demo_data/*.xlsx
-demo_data/*.xls
-
-# Logs / temporary files
 *.log
 *.tmp
 *.bak
 
-# Secrets / local configuration
-.env
-.env.*
-*.key
-*.pem
-secrets.*
+output/
+_charts/
+
+~$*.xlsx
+~$*.docx
+*.xlsx~
+*.docx~
+
+.DS_Store
+Thumbs.db
